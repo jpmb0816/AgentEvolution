@@ -123,7 +123,7 @@ function Agent() {
   };
 
   this.mate = function(partner) {
-    const midIndex = Math.floor(this.directions.length / 2);
+    const midIndex = random(0, this.directions.length);
     const len = this.directions.length;
     const directions = new Array(len);
     
@@ -166,10 +166,15 @@ function Agent() {
 function Generation(n) {
   this.noOfAgents = n;
   this.agents = new Array(n);
-  this.childs = [];
   this.matingPool = [];
   this.generationNo = 0;
-  this.mutationRate = 0.01;
+  this.mutationRate = 0.001;
+
+  for (let i = 0; i < this.noOfAgents; i++) {
+    this.agents[i] = new Agent();
+    this.agents[i].randomize();
+    this.agents[i].generateDirections(300);
+  }
 
   this.update = function() {
     this.agents.forEach(agent => {
@@ -209,11 +214,7 @@ function Generation(n) {
 
   this.generatePopulation = function() {
     if (this.generationNo === 0) {
-      for (let i = 0; i < this.noOfAgents; i++) {
-        this.agents[i] = new Agent();
-        this.agents[i].randomize();
-        this.agents[i].generateDirections(300);
-      }
+      
     }
     else {
       this.agents = this.childs;
@@ -246,10 +247,14 @@ function Generation(n) {
         this.matingPool.push(this.agents[i]);
       }
     }
+
+    fitnessLabel.innerText = this.getOverallFitness();
+    this.naturalSelection();
+    this.generationNo++;
   };
 
   this.naturalSelection = function() {
-    this.childs = [];
+    const childs = [];
     
     for (let i = 0; i < this.agents.length; i++) {
       const a = this.matingPool[random(0, this.matingPool.length)];
@@ -262,8 +267,10 @@ function Generation(n) {
       let child = a.mate(b);
       child.mutate(this.mutationRate);
       
-      this.childs.push(child);
+      childs.push(child);
     }
+
+    this.agents = childs;
   };
 }
 
@@ -280,8 +287,7 @@ function remap(x, in_min, in_max, out_min, out_max){
 }
 
 function init() {
-  gen = new Generation(400);
-  gen.generatePopulation();
+  gen = new Generation(1000);
 }
 
 function loop() {
@@ -292,9 +298,6 @@ function loop() {
 
   if (gen.isAgentAllDead()) {
     gen.evaluate();
-    fitnessLabel.innerText = gen.getOverallFitness();
-    gen.naturalSelection();
-    gen.generatePopulation();
   }
   
   gen.update();
