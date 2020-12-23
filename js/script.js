@@ -1,6 +1,8 @@
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d');
 
+const fitnessLabel = document.getElementById('fitness');
+
 let gen;
 let frameCount = 1;
 
@@ -19,13 +21,13 @@ const target = {
 
 // Agent
 function Agent() {
-  this.x = 0;
-  this.y = 0;
+  this.x = 250;
+  this.y = 250;
   this.width = 10;
   this.height = 10;
   this.vx = 0;
   this.vy = 0;
-  this.speed = 1;
+  this.speed = 4;
   this.directions = [];
   this.directionIndex = 0;
   this.fitness = 0;
@@ -33,8 +35,8 @@ function Agent() {
   this.color = 'white';
   
   this.randomize = function() {
-    this.x = random(0, canvas.width);
-    this.y = random(0, canvas.height);
+    this.x = 250;
+    this.y = 250;
     const r = random(30, 256);
     const g = random(30, 256);
     const b = random(30, 256);
@@ -85,9 +87,9 @@ function Agent() {
     ctx.strokeStyle = 'white';
     ctx.stroke();*/
 
-    ctx.font = '10px sans-serif';
-    ctx.fillStyle = 'white';
-    ctx.fillText(Math.floor(this.fitness), this.x, this.y);
+    // ctx.font = '10px sans-serif';
+    // ctx.fillStyle = 'white';
+    // ctx.fillText(Math.floor(this.fitness), this.x, this.y);
   };
 
   this.getVelocityOfMovement = function(direction) {
@@ -96,21 +98,21 @@ function Agent() {
 
     switch (direction) {
       case 0:
-        vx = 0;
-        vy = -this.speed;
-        break;
+      vx = 0;
+      vy = -this.speed;
+      break;
       case 1:
-        vx = this.speed;
-        vy = 0;
-        break;
+      vx = this.speed;
+      vy = 0;
+      break;
       case 2:
-        vx = 0;
-        vy = this.speed;
-        break;
+      vx = 0;
+      vy = this.speed;
+      break;
       case 3:
-        vx = -this.speed;
-        vy = 0;
-        break;
+      vx = -this.speed;
+      vy = 0;
+      break;
     }
 
     return { dir: direction, vx: vx, vy: vy };
@@ -135,8 +137,6 @@ function Agent() {
     }
     
     const child = new Agent();
-    child.x = this.x;
-    child.y = this.y;
     child.color = this.color;
     child.directions = directions;
     
@@ -156,7 +156,7 @@ function Agent() {
           dir--;
         }
 
-        this.directions[i] = this.generateDirections(dir);
+        this.directions[i] = this.getVelocityOfMovement(dir);
       }
     }
   };
@@ -167,8 +167,9 @@ function Generation(n) {
   this.noOfAgents = n;
   this.agents = new Array(n);
   this.childs = [];
+  this.matingPool = [];
   this.generationNo = 0;
-  this.mutationRate = 0.05;
+  this.mutationRate = 0.01;
 
   this.update = function() {
     this.agents.forEach(agent => {
@@ -196,6 +197,16 @@ function Generation(n) {
     return true;
   };
 
+  this.getOverallFitness = function() {
+    let total = 0;
+
+    for (let i = 0; i < this.agents.length; i++) {
+      total += this.agents[i].fitness;
+    }
+
+    return total / this.agents.length;
+  };
+
   this.generatePopulation = function() {
     if (this.generationNo === 0) {
       for (let i = 0; i < this.noOfAgents; i++) {
@@ -211,9 +222,29 @@ function Generation(n) {
     this.generationNo++;
   };
 
-  this.calculateFitness = function() {
-    for (let i = 0; i < n; i++) {
+  this.evaluate = function() {
+    let maxFit = -Infinity;
+
+    for (let i = 0; i < this.agents.length; i++) {
       this.agents[i].calculateFitness();
+
+      if (this.agents[i].fitness > maxFit) {
+        maxFit = this.agents[i].fitness;
+      }
+    }
+
+    for (let i = 0; i < this.agents.length; i++) {
+      this.agents[i].fitness = remap(this.agents[i].fitness, maxFit, 0, 0, 1);
+    }
+
+    this.matingPool = [];
+
+    for (let i = 0; i < this.agents.length; i++) {
+      const n = Math.floor(this.agents[i].fitness * 100);
+
+      for (let j = 0; j < n; j++) {
+        this.matingPool.push(this.agents[i]);
+      }
     }
   };
 
@@ -221,11 +252,11 @@ function Generation(n) {
     this.childs = [];
     
     for (let i = 0; i < this.agents.length; i++) {
-      const a = this.agents[i];
-      let b = this.agents[random(0, this.agents.length)];
+      const a = this.matingPool[random(0, this.matingPool.length)];
+      let b = this.matingPool[random(0, this.matingPool.length)];
       
       while (b === a) {
-        b = this.agents[random(0, this.agents.length)];
+        b = this.matingPool[random(0, this.matingPool.length)];
       }
       
       let child = a.mate(b);
@@ -244,8 +275,12 @@ function getDistance(a, b) {
   return Math.sqrt(Math.pow((b.x - a.x), 2) + Math.pow((b.y - a.y), 2));
 }
 
+function remap(x, in_min, in_max, out_min, out_max){
+  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+}
+
 function init() {
-  gen = new Generation(50);
+  gen = new Generation(400);
   gen.generatePopulation();
 }
 
@@ -255,9 +290,9 @@ function loop() {
 
   target.draw(ctx);
 
-  gen.calculateFitness();
-  
   if (gen.isAgentAllDead()) {
+    gen.evaluate();
+    fitnessLabel.innerText = gen.getOverallFitness();
     gen.naturalSelection();
     gen.generatePopulation();
   }
